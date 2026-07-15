@@ -20,29 +20,52 @@ jobs:
         with:
           channel: 'stable'
 
-      # Génère les fichiers plateforme manquants (android/, etc.)
       - name: Flutter create (platform files)
         run: flutter create . --org com.rafael.pocketagent --platforms android --project-name pocket_agent
 
-      # Corrige compileSdk (plugins récents exigent 36) + supprime le test template
       - name: Patch build config
         run: |
           rm -f test/widget_test.dart
           sed -i 's/flutter.compileSdkVersion/36/' android/app/build.gradle* || true
           grep -n "compileSdk" android/app/build.gradle* || true
 
-      # S'assure que le manifest a bien INTERNET + cleartext (Ollama local)
+      - name: Patch native (Ask PocketAgent + process text channel)
+        run: |
+          MA=$(find android -name MainActivity.kt | head -1)
+          PKG=$(head -1 "$MA")
+          cp tooling/MainActivity.kt "$MA"
+          sed -i "1s|.*|$PKG|" "$MA"
+          head -2 "$MA"
+
       - name: Patch AndroidManifest
         run: |
           M=android/app/src/main/AndroidManifest.xml
           grep -q 'android.permission.INTERNET' $M || sed -i 's|<application|<uses-permission android:name="android.permission.INTERNET"/>\n    <application|' $M
           grep -q 'usesCleartextTraffic' $M || sed -i 's|<application|<application android:usesCleartextTraffic="true"|' $M
           sed -i 's|android:label="[^"]*"|android:label="PocketAgent"|' $M
+          if ! grep -q 'PROCESS_TEXT' $M; then
+            sed -i 's#</activity>#</activity>\n        <activity-alias android:name=".AskPocketAgent" android:targetActivity=".MainActivity" android:label="Demander a PocketAgent" android:exported="true">\n          <intent-filter>\n            <action android:name="android.intent.action.PROCESS_TEXT"/>\n            <category android:name="android.intent.category.DEFAULT"/>\n            <data android:mimeType="text/plain"/>\n          </intent-filter>\n        </activity-alias>#' $M
+          fi
           cat $M
 
-      # Menu de sélection "Demander à PocketAgent" (ACTION_PROCESS_TEXT) + canal natif
-      - name: Patch native (process text)
-        run: |
-          MA=$(find android -name MainActivity.kt | head -1)
-          PKG=$(head -1 "$MA")
-          cp tooling/MainActivity.
+      - name: Dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos || true
+
+      - name: Build APK
+        run: flutter build apk --release
+
+      - name: Build App Bundle (Play Store)
+        run: flutter build appbundle --release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PocketAgent-APK
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PocketAgent-AAB
+          path: build/app/outputs/bundle/release/app-release.aab
