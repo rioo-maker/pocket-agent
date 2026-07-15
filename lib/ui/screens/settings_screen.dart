@@ -80,4 +80,38 @@ class SettingsScreen extends StatelessWidget {
         ],
       ),
     );
-    if
+    if (path == null || path.isEmpty) return;
+    try {
+      Directory(path).createSync(recursive: true);
+      await state.setWorkspace(path);
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Dossier inaccessible (permissions Android)')));
+      }
+    }
+  }
+
+  Widget _skinCard(BuildContext context, AppState state, TerminalSkin s) {
+    final selected = state.skin.id == s.id;
+    return Card(
+      color: s.bg,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(
+            color: selected ? s.accent : state.skin.border,
+            width: selected ? 2 : 1),
+      ),
+      child: ListTile(
+        leading: Text(s.promptSymbol,
+            style: s.mono(color: s.accent, size: 20, weight: FontWeight.bold)),
+        title: Text(s.name, style: s.mono(color: s.userText, size: 14)),
+        subtitle: Text('interface style ${s.name.toLowerCase()}',
+            style: s.mono(color: s.toolText, size: 11)),
+        trailing:
+            selected ? Icon(Icons.check_circle, color: s.accent) : null,
+        onTap: () => state.setSkin(s.id),
+      ),
+    );
+  }
+}
