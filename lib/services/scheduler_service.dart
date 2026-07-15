@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
 
+import '../models/provider_config.dart';
 import 'agent_engine.dart';
 
 /// Runs scheduled tasks. While the app is alive a Timer checks every minute
@@ -110,7 +111,7 @@ class SchedulerService {
 
 /// Minimal holder so the scheduler always sees current routes/workspace.
 class ModelRouteHolder {
-  final List routes;
+  final List<ModelRoute> routes;
   final String workspace;
   ModelRouteHolder(this.routes, this.workspace);
 }
