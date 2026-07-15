@@ -20,8 +20,33 @@ void main() {
   );
 }
 
-class PocketAgentApp extends StatelessWidget {
+class PocketAgentApp extends StatefulWidget {
   const PocketAgentApp({super.key});
+
+  @override
+  State<PocketAgentApp> createState() => _PocketAgentAppState();
+}
+
+class _PocketAgentAppState extends State<PocketAgentApp>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState s) {
+    if (s == AppLifecycleState.paused || s == AppLifecycleState.inactive) {
+      context.read<AppState>().engine.persist();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -6,19 +6,27 @@ import 'package:uuid/uuid.dart';
 
 import 'models/provider_config.dart';
 import 'services/agent_engine.dart';
+import 'services/scheduler_service.dart';
 import 'services/storage_service.dart';
 import 'ui/theme.dart';
 
-/// Global app state: skin, model routes, workspace, agent engine.
+/// Global app state: skin, model routes, workspace, agent engine, scheduler.
 class AppState extends ChangeNotifier {
   final StorageService storage = StorageService();
   final AgentEngine engine = AgentEngine();
+  late final SchedulerService scheduler;
 
   TerminalSkin skin = TerminalSkin.claude;
   List<ModelRoute> routes = [];
   String workspace = '';
   bool onboarded = false;
   bool loaded = false;
+
+  AppState() {
+    scheduler = SchedulerService([ModelRouteHolder(routes, workspace)]);
+  }
+
+  ModelRouteHolder get _holder => ModelRouteHolder(routes, workspace);
 
   Future<void> init() async {
     skin = TerminalSkin.byId(await storage.loadSkin());
@@ -37,6 +45,11 @@ class AppState extends ChangeNotifier {
 
     engine.routes = routes;
     engine.workspace = workspace;
+    await engine.restoreLast();
+
+    scheduler = SchedulerService([_holder]);
+    scheduler.start();
+
     loaded = true;
     notifyListeners();
   }

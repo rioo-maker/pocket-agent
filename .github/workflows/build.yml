@@ -40,24 +40,9 @@ jobs:
           sed -i 's|android:label="[^"]*"|android:label="PocketAgent"|' $M
           cat $M
 
-      - name: Dependencies
-        run: flutter pub get
-
-      - name: Analyze
-        run: flutter analyze --no-fatal-infos || true
-
-      - name: Build APK
-        run: flutter build apk --release
-
-      - name: Build App Bundle (Play Store)
-        run: flutter build appbundle --release
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: PocketAgent-APK
-          path: build/app/outputs/flutter-apk/app-release.apk
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: PocketAgent-AAB
-          path: build/app/outputs/bundle/release/app-release.aab
+      # Menu de sélection "Demander à PocketAgent" (ACTION_PROCESS_TEXT) + canal natif
+      - name: Patch native (process text)
+        run: |
+          MA=$(find android -name MainActivity.kt | head -1)
+          PKG=$(head -1 "$MA")
+          cp tooling/MainActivity.

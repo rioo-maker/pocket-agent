@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 
 /// Tools the agent can call: file system, shell, web fetch.
 /// All file paths are resolved inside [workspace] (the agent's sandbox on
@@ -61,6 +62,38 @@ class AgentTools {
           'method',
           'url'
         ]),
+        _def('make_document',
+            'Generer un document pret a previsualiser sur le telephone. Formats: html (site/page web), md, csv, txt, json. Ecrit le fichier et renvoie son chemin.', {
+          'path': _s('Chemin de sortie, ex: site/index.html'),
+          'format': _s('html | md | csv | txt | json'),
+          'content': _s('Contenu complet du document'),
+        }, [
+          'path',
+          'format',
+          'content'
+        ]),
+        _def('open_preview',
+            'Marquer un fichier a previsualiser dans l app (html rendu comme site, md rendu, images). Renvoie une balise que l UI transforme en bouton Apercu.', {
+          'path': _s('Chemin du fichier a previsualiser'),
+        }, [
+          'path'
+        ]),
+        _def('schedule_task',
+            'Creer une tache planifiee que l agent executera tout seul plus tard ou en boucle. L IA peut se creer ses propres crons.', {
+          'title': _s('Nom court de la tache'),
+          'prompt': _s('Instruction que l agent executera a l echeance'),
+          'when': _s('Heure/date ISO pour une seule fois, ex: 2026-07-16T09:00'),
+          'every_minutes': _s('OU intervalle en minutes pour repeter, ex: 60'),
+        }, [
+          'title',
+          'prompt'
+        ]),
+        _def('list_tasks', 'Lister les taches planifiees.', {}, []),
+        _def('cancel_task', 'Annuler une tache planifiee par son id.', {
+          'id': _s('Identifiant de la tache'),
+        }, [
+          'id'
+        ]),
         _def('search_files',
             'Chercher un motif texte dans les fichiers du workspace (comme grep -r).', {
           'pattern': _s('Texte ou regex à chercher'),
@@ -108,6 +141,17 @@ class AgentTools {
           return await _webFetch(args['url'] as String? ?? '');
         case 'http_request':
           return await _httpRequest(args);
+        case 'make_document':
+          return _makeDocument(args['path'] as String? ?? '',
+              args['format'] as String? ?? 'txt', args['content'] as String? ?? '');
+        case 'open_preview':
+          return _openPreview(args['path'] as String? ?? '');
+        case 'schedule_task':
+          return await _scheduleTask(args);
+        case 'list_tasks':
+          return await _listTasks();
+        case 'cancel_task':
+          return await _cancelTask(args['id'] as String? ?? '');
         case 'search_files':
           return _searchFiles(
               args['pattern'] as String? ?? '', args['path'] as String? ?? '');
@@ -225,6 +269,68 @@ class AgentTools {
     final text = await resp.stream.bytesToString();
     final out = 'HTTP ${resp.statusCode}\n$text';
     return out.length > 40000 ? '${out.substring(0, 40000)}\n...[tronqué]' : out;
+  }
+
+  String _makeDocument(String path, String format, String content) {
+    final f = File(_resolve(path));
+    f.parent.createSync(recursive: true);
+    f.writeAsStringSync(content);
+    return 'OK document $format cree: $path\n[PREVIEW:${f.path}]';
+  }
+
+  String _openPreview(String path) {
+    final f = File(_resolve(path));
+    if (!f.existsSync()) return 'Erreur: fichier introuvable: $path';
+    return 'Apercu pret.\n[PREVIEW:${f.path}]';
+  }
+
+  Future<File> _tasksFile() async {
+    final base = await getApplicationDocumentsDirectory();
+    final f = File('${base.path}/scheduled_tasks.json');
+    if (!f.existsSync()) f.writeAsStringSync('[]');
+    return f;
+  }
+
+  Future<String> _scheduleTask(Map<String, dynamic> args) async {
+    final f = await _tasksFile();
+    final list = jsonDecode(await f.readAsString()) as List<dynamic>;
+    final id = DateTime.now().millisecondsSinceEpoch.toString();
+    final every = int.tryParse('${args['every_minutes'] ?? ''}');
+    final task = {
+      'id': id,
+      'title': args['title'] ?? 'Tache',
+      'prompt': args['prompt'] ?? '',
+      'when': args['when'],
+      'everyMinutes': every,
+      'nextRun': args['when'] ??
+          DateTime.now()
+              .add(Duration(minutes: every ?? 1))
+              .toIso8601String(),
+      'enabled': true,
+    };
+    list.add(task);
+    await f.writeAsString(jsonEncode(list));
+    return 'OK tache planifiee (id $id): ${task['title']}'
+        '${every != null ? ' toutes les ' + every.toString() + ' min' : ' a ' + (args['when'] ?? '?').toString()}';
+  }
+
+  Future<String> _listTasks() async {
+    final f = await _tasksFile();
+    final list = jsonDecode(await f.readAsString()) as List<dynamic>;
+    if (list.isEmpty) return 'Aucune tache planifiee.';
+    return list
+        .map((t) =>
+            '${t['id']} | ${t['title']} | prochain: ${t['nextRun']} | ${t['enabled'] == true ? 'actif' : 'inactif'}')
+        .join('\n');
+  }
+
+  Future<String> _cancelTask(String id) async {
+    final f = await _tasksFile();
+    final list = jsonDecode(await f.readAsString()) as List<dynamic>;
+    final before = list.length;
+    list.removeWhere((t) => t['id'] == id);
+    await f.writeAsString(jsonEncode(list));
+    return before == list.length ? 'Aucune tache $id' : 'Tache $id annulee';
   }
 
   String _searchFiles(String pattern, String sub) {

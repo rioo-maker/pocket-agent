@@ -15,6 +15,21 @@ class ChatMessage {
     DateTime? time,
     this.streaming = false,
   }) : time = time ?? DateTime.now();
+
+  Map<String, dynamic> toJson() => {
+        'role': role.name,
+        'content': content,
+        'toolName': toolName,
+        'time': time.toIso8601String(),
+      };
+
+  factory ChatMessage.fromJson(Map<String, dynamic> j) => ChatMessage(
+        role: MsgRole.values.firstWhere((r) => r.name == j['role'],
+            orElse: () => MsgRole.info),
+        content: j['content'] as String? ?? '',
+        toolName: j['toolName'] as String?,
+        time: DateTime.tryParse(j['time'] as String? ?? '') ?? DateTime.now(),
+      );
 }
 
 /// Internal message format sent to LLM APIs (OpenAI shape, converted for Anthropic).
@@ -41,4 +56,22 @@ class LlmMessage {
     if (name != null) m['name'] = name;
     return m;
   }
+
+  Map<String, dynamic> toJson() => {
+        'role': role,
+        'content': content,
+        'toolCalls': toolCalls,
+        'toolCallId': toolCallId,
+        'name': name,
+      };
+
+  factory LlmMessage.fromJson(Map<String, dynamic> j) => LlmMessage(
+        role: j['role'] as String? ?? 'user',
+        content: j['content'] as String?,
+        toolCalls: (j['toolCalls'] as List?)
+            ?.map((e) => Map<String, dynamic>.from(e as Map))
+            .toList(),
+        toolCallId: j['toolCallId'] as String?,
+        name: j['name'] as String?,
+      );
 }
