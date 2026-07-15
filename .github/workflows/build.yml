@@ -24,6 +24,13 @@ jobs:
       - name: Flutter create (platform files)
         run: flutter create . --org com.rafael.pocketagent --platforms android --project-name pocket_agent
 
+      # Corrige compileSdk (plugins récents exigent 36) + supprime le test template
+      - name: Patch build config
+        run: |
+          rm -f test/widget_test.dart
+          sed -i 's/flutter.compileSdkVersion/36/' android/app/build.gradle* || true
+          grep -n "compileSdk" android/app/build.gradle* || true
+
       # S'assure que le manifest a bien INTERNET + cleartext (Ollama local)
       - name: Patch AndroidManifest
         run: |
@@ -43,14 +50,4 @@ jobs:
         run: flutter build apk --release
 
       - name: Build App Bundle (Play Store)
-        run: flutter build appbundle --release
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: PocketAgent-APK
-          path: build/app/outputs/flutter-apk/app-release.apk
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: PocketAgent-AAB
-          path: build/app/outputs/bundle/release/app-release.aab
+        run: flutter build a
