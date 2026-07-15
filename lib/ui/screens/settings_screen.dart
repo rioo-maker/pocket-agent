@@ -1,4 +1,5 @@
-import 'package:file_picker/file_picker.dart';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -39,10 +40,7 @@ class SettingsScreen extends StatelessWidget {
               title: Text(state.workspace,
                   style: skin.mono(color: skin.userText, size: 12)),
               trailing: Icon(Icons.folder_open, color: skin.accent),
-              onTap: () async {
-                final dir = await FilePicker.platform.getDirectoryPath();
-                if (dir != null) await state.setWorkspace(dir);
-              },
+              onTap: () => _editWorkspace(context, state),
             ),
           ),
           const SizedBox(height: 8),
@@ -55,26 +53,31 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _skinCard(BuildContext context, AppState state, TerminalSkin s) {
-    final selected = state.skin.id == s.id;
-    return Card(
-      color: s.bg,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(
-            color: selected ? s.accent : state.skin.border,
-            width: selected ? 2 : 1),
-      ),
-      child: ListTile(
-        leading: Text(s.promptSymbol,
-            style: s.mono(color: s.accent, size: 20, weight: FontWeight.bold)),
-        title: Text(s.name, style: s.mono(color: s.userText, size: 14)),
-        subtitle: Text('interface style ${s.name.toLowerCase()}',
-            style: s.mono(color: s.toolText, size: 11)),
-        trailing:
-            selected ? Icon(Icons.check_circle, color: s.accent) : null,
-        onTap: () => state.setSkin(s.id),
+  Future<void> _editWorkspace(BuildContext context, AppState state) async {
+    final skin = state.skin;
+    final ctrl = TextEditingController(text: state.workspace);
+    final path = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: skin.surface,
+        title: Text('Dossier workspace',
+            style: skin.mono(color: skin.userText, size: 15)),
+        content: TextField(
+          controller: ctrl,
+          style: skin.mono(color: skin.userText, size: 12),
+          decoration:
+              const InputDecoration(hintText: '/storage/emulated/0/...'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Annuler', style: skin.mono(color: skin.toolText)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: Text('OK', style: skin.mono(color: skin.accent)),
+          ),
+        ],
       ),
     );
-  }
-}
+    if
