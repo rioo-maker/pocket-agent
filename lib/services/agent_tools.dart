@@ -48,6 +48,19 @@ class AgentTools {
         }, [
           'url'
         ]),
+        _def('http_request',
+            'Requête HTTP complète (méthode, headers, body) pour appeler des APIs: GitHub, Vercel, etc. Ex: créer un repo GitHub, déployer sur Vercel avec un token Authorization.', {
+          'method': _s('GET, POST, PUT, PATCH ou DELETE'),
+          'url': _s('URL complète https://...'),
+          'headers': {
+            'type': 'object',
+            'description': 'Headers HTTP, ex: {"Authorization": "Bearer TOKEN"}'
+          },
+          'body': _s('Corps de la requête (JSON ou texte), optionnel'),
+        }, [
+          'method',
+          'url'
+        ]),
         _def('search_files',
             'Chercher un motif texte dans les fichiers du workspace (comme grep -r).', {
           'pattern': _s('Texte ou regex à chercher'),
@@ -93,6 +106,8 @@ class AgentTools {
           return await _runCommand(args['command'] as String? ?? '');
         case 'web_fetch':
           return await _webFetch(args['url'] as String? ?? '');
+        case 'http_request':
+          return await _httpRequest(args);
         case 'search_files':
           return _searchFiles(
               args['pattern'] as String? ?? '', args['path'] as String? ?? '');
@@ -187,6 +202,29 @@ class AgentTools {
           .replaceAll(RegExp(r'\s+'), ' ');
     }
     return body.length > 40000 ? '${body.substring(0, 40000)}\n...[tronqué]' : body;
+  }
+
+  Future<String> _httpRequest(Map<String, dynamic> args) async {
+    final method = (args['method'] as String? ?? 'GET').toUpperCase();
+    final url = args['url'] as String? ?? '';
+    if (!url.startsWith('http')) return 'Erreur: URL invalide';
+    if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].contains(method)) {
+      return 'Erreur: méthode $method non supportée';
+    }
+    final req = http.Request(method, Uri.parse(url));
+    req.headers['User-Agent'] = 'PocketAgent/1.0';
+    (args['headers'] as Map?)?.forEach((k, v) => req.headers['$k'] = '$v');
+    final body = args['body'];
+    if (body != null) {
+      req.body = body is String ? body : jsonEncode(body);
+      req.headers.putIfAbsent('Content-Type', () => 'application/json');
+    }
+    final resp = await http.Client()
+        .send(req)
+        .timeout(const Duration(seconds: 60));
+    final text = await resp.stream.bytesToString();
+    final out = 'HTTP ${resp.statusCode}\n$text';
+    return out.length > 40000 ? '${out.substring(0, 40000)}\n...[tronqué]' : out;
   }
 
   String _searchFiles(String pattern, String sub) {
