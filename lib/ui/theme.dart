@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Two terminal skins: "claude" (Claude Code vibes: dark + orange/coral)
-/// and "opencode" (OpenCode vibes: dark + white/grey minimal).
+/// Two terminal skins: "claude" (dark + coral accent) and
+/// "opencode" (pure black minimal). Neutral names in the UI.
 class TerminalSkin {
   final String id;
   final String name;
@@ -34,7 +34,7 @@ class TerminalSkin {
 
   static const claude = TerminalSkin(
     id: 'claude',
-    name: 'Claude Code',
+    name: 'Corail',
     bg: Color(0xFF1A1915),
     surface: Color(0xFF262521),
     accent: Color(0xFFD97757),
@@ -49,7 +49,7 @@ class TerminalSkin {
 
   static const opencode = TerminalSkin(
     id: 'opencode',
-    name: 'OpenCode',
+    name: 'Minimal',
     bg: Color(0xFF0A0A0A),
     surface: Color(0xFF161616),
     accent: Color(0xFFFAB283),
